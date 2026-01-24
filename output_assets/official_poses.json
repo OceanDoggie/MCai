@@ -1,0 +1,65 @@
+[
+    {
+        "id": "pose_A_pose_b517f76d",
+        "name": "A Pose",
+        "category": "Smart Guide",
+        "is_official": true,
+        "source_url": "",
+        "sketch_url": "file:///android_asset/sketches/A_pose_sketch.png",
+        "guide_text": "靠墙，向上伸直手臂，稍微弯曲身体，展现自信。"
+    },
+    {
+        "id": "pose_B_pose_e1111aec",
+        "name": "B Pose",
+        "category": "Smart Guide",
+        "is_official": true,
+        "source_url": "",
+        "sketch_url": "file:///android_asset/sketches/B_pose_sketch.png",
+        "guide_text": "身体重心放在一条腿上，另一条腿抬起，自信地看着镜头。加油！"
+    },
+    {
+        "id": "pose_D_pose_9fe1d743",
+        "name": "D Pose",
+        "category": "Smart Guide",
+        "is_official": true,
+        "source_url": "",
+        "sketch_url": "file:///android_asset/sketches/D_pose_sketch.png",
+        "guide_text": "放松身体，一只脚稍稍抬起，双手叉腰，看着镜头。"
+    },
+    {
+        "id": "pose_G_pose_b6ce0dff",
+        "name": "G Pose",
+        "category": "Smart Guide",
+        "is_official": true,
+        "source_url": "",
+        "sketch_url": "file:///android_asset/sketches/G_pose_sketch.png",
+        "guide_text": "身体弯曲，一只手举过头顶，另一只手轻轻地放在你的腰上。"
+    },
+    {
+        "id": "pose_F_pose_edbcffcd",
+        "name": "F Pose",
+        "category": "Smart Guide",
+        "is_official": true,
+        "source_url": "",
+        "sketch_url": "file:///android_asset/sketches/F_pose_sketch.png",
+        "guide_text": "身体稍微倾斜，一只手抬起，另一只手放在胸前，侧身面对镜头。"
+    },
+    {
+        "id": "pose_C_pose_bbd5da0e",
+        "name": "C Pose",
+        "category": "Smart Guide",
+        "is_official": true,
+        "source_url": "",
+        "sketch_url": "file:///android_asset/sketches/C_pose_sketch.png",
+        "guide_text": "稍微仰头，一手扶住头顶。展现自信和曲线！"
+    },
+    {
+        "id": "pose_E_pose_ecd2725b",
+        "name": "E Pose",
+        "category": "Smart Guide",
+        "is_official": true,
+        "source_url": "",
+        "sketch_url": "file:///android_asset/sketches/E_pose_sketch.png",
+        "guide_text": "请摆出自信姿势，一只手放在头上，另一只手放在臀部。"
+    }
+]

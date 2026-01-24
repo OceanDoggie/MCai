@@ -1,0 +1,20 @@
+[
+    {
+        "id": "official_001",
+        "name": "Portrait Basics",
+        "category": "Portrait",
+        "is_official": true,
+        "source_url": "https://storage.googleapis.com/mcai-assets/poses/portrait_001_source.jpg",
+        "sketch_url": "https://storage.googleapis.com/mcai-assets/poses/portrait_001_sketch.jpg",
+        "guide_text": "Keep your chin up and look slightly to the side."
+    },
+    {
+        "id": "user_123",
+        "name": "My Cool Pose",
+        "category": "Casual",
+        "is_official": false,
+        "source_url": "file:///storage/emulated/0/DCIM/Camera/IMG_2024.jpg",
+        "sketch_url": "",
+        "guide_text": null
+    }
+]

@@ -1,0 +1,7 @@
+{
+  "name": "MCai v1- AI Posing Coach",
+  "description": "A professional AI posing coach app with playlist management and live camera guidance.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
