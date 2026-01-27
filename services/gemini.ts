@@ -34,6 +34,7 @@ const SAFETY_SETTINGS = [
 export interface AnalyzedPoseData {
   title: string;
   difficulty: 'Easy' | 'Medium' | 'Hard';
+  description: string;  // 摄影师指导词
   tips: string[];
   tags: string[];
   structure: PoseStructure;
@@ -66,11 +67,22 @@ export const analyzePoseImage = async (base64Image: string, sourceName: string =
           {
             text: `Analyze this pose for a photography app. Return JSON only.
             Fields:
-            1. title (string)
+            1. title (string) - 姿势名称
             2. difficulty (Easy/Medium/Hard)
-            3. tags (array of strings)
-            4. structure (object with head, hands, feet instructions)
-            5. tips (array of strings)`
+            3. description (string) - 摄影师机位指导词，格式必须是：
+               "[站距] arms ([距离]m) | [倍数]x | [高度] Level | [角度] [度数]°"
+               根据姿势类型选择：
+               - 站姿全身: "2 arms (1.8m) | 1x | Chest Level | Inward 15°"
+               - 站姿半身: "2 arms (1.8m) | 1.5x | Chest Level | Inward 15°"
+               - 坐姿半身: "2 arms (1.8m) | 1.5x | Chest Level | Inward 15°"
+               - 蹲姿: "1 arm (1.2m) | 2x | Neck Level | Outward 10°"
+               - 躺姿: "2.5 arms (2m) | 2x | Eye Level | Outward 35°"
+               - 脸部特写: "2 arms (1.8m) | 3x | Neck Level | Inward 15°"
+               - 仰拍站姿: "4 arms (2.5m) | 1x | Knee Level | Inward 15°"
+               - 俯拍坐/蹲姿: "2 arms (1.5m) | 2x | Eye Level | Outward 35°"
+            4. tags (array of strings)
+            5. structure (object with head, hands, feet instructions for model)
+            6. tips (array of strings)`
           },
         ],
       },
@@ -83,6 +95,7 @@ export const analyzePoseImage = async (base64Image: string, sourceName: string =
           properties: {
             title: { type: Type.STRING },
             difficulty: { type: Type.STRING, enum: ["Easy", "Medium", "Hard"] },
+            description: { type: Type.STRING },  // 摄影师指导词
             tags: { type: Type.ARRAY, items: { type: Type.STRING } },
             structure: {
               type: Type.OBJECT,
@@ -98,7 +111,7 @@ export const analyzePoseImage = async (base64Image: string, sourceName: string =
               items: { type: Type.STRING },
             }
           },
-          required: ["title", "difficulty", "tips", "tags", "structure"],
+          required: ["title", "difficulty", "description", "tips", "tags", "structure"],
         },
       },
     });

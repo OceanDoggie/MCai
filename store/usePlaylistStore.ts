@@ -27,6 +27,7 @@ interface PlaylistState {
   removeFromUnsorted: (instanceId: string) => void;
   removeFromSavedPlaylist: (playlistId: string, instanceId: string) => void;
   clearPlaylist: () => void;
+  clearAll: () => void; // [NEW] Clear all data for testing
   isInUnsorted: (poseId: string) => boolean;
 
   // UI Actions
@@ -165,6 +166,18 @@ export const usePlaylistStore = create<PlaylistState>((set, get) => ({
 
   clearPlaylist: () => {
     set({ playlist: [] });
+  },
+
+  clearAll: () => {
+    set({
+      playlist: [],
+      unsortedPoses: [],
+      savedPlaylists: [
+        { id: 'pl-1', title: 'Morning Shoot', items: [] },
+        { id: 'pl-2', title: 'Studio Vibes', items: [] }
+      ]
+    });
+    console.log('✅ All playlist data cleared!');
   },
 
   isInUnsorted: (poseId: string) => {

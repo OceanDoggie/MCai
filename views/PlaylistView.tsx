@@ -101,7 +101,7 @@ export const PlaylistView: React.FC = () => {
                 const newPose = {
                     id: `custom-${Date.now()}`,
                     title: geminiAnalysis.title,
-                    description: 'User uploaded reference',
+                    description: geminiAnalysis.description,  // 使用 Gemini 生成的摄影师指导词
                     imageSrc: base64String,
                     category: PoseCategory.SELFIE,
                     tags: geminiAnalysis.tags,

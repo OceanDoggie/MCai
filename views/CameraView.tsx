@@ -35,12 +35,39 @@ export const CameraView: React.FC = () => {
     const { currentLivePose, setCurrentLivePose } = useLivePoseStore();
 
     // [NEW] Live Session Hook
-    const { status: liveStatus, connect: connectLive, disconnect: disconnectLive, sendExactFrame } = useLiveSession();
+    const { status: liveStatus, connect: connectLive, disconnect: disconnectLive, sendExactFrame, sendPoseData, setTargetPose } = useLiveSession();
 
     const activePose = playlist[activeIndex];
     const lastPhoto = gallery.length > 0 ? gallery[gallery.length - 1] : null;
 
     const lastFrameTime = useRef(0);
+
+    // [DEBUG] Log active pose data
+    useEffect(() => {
+        if (activePose) {
+            console.log('=== Active Pose Debug ===');
+            console.log('Title:', activePose.title);
+            console.log('Description:', activePose.description);
+            console.log('Structure:', activePose.structure);
+            console.log('  - HEAD:', activePose.structure?.head || '❌ MISSING');
+            console.log('  - HANDS:', activePose.structure?.hands || '❌ MISSING');
+            console.log('  - FEET:', activePose.structure?.feet || '❌ MISSING');
+            console.log('========================');
+        }
+    }, [activePose]);
+
+    // [NEW] 当连接成功或切换姿势时，通知 Gemini 目标姿势
+    useEffect(() => {
+        if (liveStatus === 'connected' && activePose) {
+            setTargetPose({
+                id: activePose.id,
+                title: activePose.title,
+                description: activePose.description,
+                structure: activePose.structure || { head: 'Natural', hands: 'Relaxed', feet: 'Stable' },
+                tips: activePose.tips || []
+            });
+        }
+    }, [liveStatus, activePose, setTargetPose]);
 
     const feetWarning = useMemo(() => {
         if (!currentLivePose || !activePose) return false;
@@ -156,10 +183,10 @@ export const CameraView: React.FC = () => {
             if (videoRef.current && videoRef.current.readyState >= 2) {
                 // 1. Detect Pose (Local)
                 const result = detectPose(videoRef.current, now);
-                if (result && result.landmarks && result.landmarks.length > 0) setCurrentLivePose(result.landmarks[0]);
-                else setCurrentLivePose(null);
+                const detectedLandmarks = result?.landmarks?.[0] ?? null;
+                setCurrentLivePose(detectedLandmarks);
 
-                // 2. Send Frame to AI (~1 FPS)
+                // 2. Send Frame + Pose to AI (~1 FPS)
                 if (liveStatus === 'connected' && now - lastFrameTime.current > 1000) {
                     lastFrameTime.current = now;
                     try {
@@ -172,6 +199,11 @@ export const CameraView: React.FC = () => {
                             ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
                             const base64 = canvas.toDataURL('image/jpeg', 0.5);
                             sendExactFrame(base64);
+                        }
+
+                        // 3. Send Pose Landmarks (if detected)
+                        if (detectedLandmarks && detectedLandmarks.length > 0) {
+                            sendPoseData(detectedLandmarks);
                         }
                     } catch (e) {
                         console.error("Frame send error", e);
@@ -201,7 +233,7 @@ export const CameraView: React.FC = () => {
             if (stream) stream.getTracks().forEach(track => track.stop());
             cancelAnimationFrame(animationFrameId);
         };
-    }, [setCurrentLivePose, shootingMode, liveStatus, sendExactFrame, currentView]);
+    }, [setCurrentLivePose, shootingMode, liveStatus, sendExactFrame, sendPoseData, currentView]);
 
     return (
         <div className="relative h-screen w-full bg-black overflow-hidden flex flex-col font-sans" onClick={() => { setIsSettingsOpen(false); setIsInputFocused(false); }}>
@@ -286,7 +318,7 @@ export const CameraView: React.FC = () => {
 
                         <div className="absolute top-24 left-1/2 -translate-x-1/2 w-full max-w-[280px] pointer-events-none z-20">
                             <div className="text-center">
-                                <p className="text-white text-lg font-bold tracking-tight drop-shadow-lg italic">"{activePose.tips?.[0]}"</p>
+                                <p className="text-white text-lg font-bold tracking-tight drop-shadow-lg italic">"{activePose.description}"</p>
                             </div>
                         </div>
                     </>
@@ -336,9 +368,11 @@ export const CameraView: React.FC = () => {
                                     <span className="text-mcai-accent font-black text-[7px] uppercase block mb-0.5">HANDS</span>
                                     <p className="text-white/90 text-[8px] leading-[1.1] font-medium">{activePose.structure?.hands || "Relaxed"}</p>
                                 </div>
-                                <div className={`backdrop-blur-md rounded-lg border p-1.5 transition-all ${feetWarning ? 'bg-red-500/40 border-red-500/60 shadow-lg' : 'bg-black/60 border-white/10'}`}>
-                                    <span className={`font-black text-[7px] uppercase block mb-0.5 ${feetWarning ? 'text-white' : 'text-mcai-accent'}`}>FEET</span>
-                                    <p className={`text-[8px] leading-[1.1] font-medium ${feetWarning ? 'text-white' : 'text-white/90'}`}>{feetWarning ? "Fix!" : (activePose.structure?.feet || "Stable")}</p>
+                                <div className="bg-black/60 backdrop-blur-md rounded-lg border border-white/10 p-1.5">
+                                    <span className="text-mcai-accent font-black text-[7px] uppercase block mb-0.5">FEET</span>
+                                    <p className="text-white/90 text-[8px] leading-[1.1] font-medium">
+                                        {activePose.structure?.feet || "Stable"}
+                                    </p>
                                 </div>
                             </div>
                         )}

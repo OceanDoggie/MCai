@@ -1,6 +1,7 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { Pose, Landmark } from '../types';
-import { useLivePoseStore } from '../store/useLivePoseStore';
+import React, { useEffect, useRef, useState } from 'react';
+import { Pose } from '../types';
+import { useLivePoseStore, FeedbackItem } from '../store/useLivePoseStore';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface PoseOverlayProps {
   pose: Pose | undefined;
@@ -20,22 +21,109 @@ const CONNECTIONS = [
   [9, 10] // Mouth
 ];
 
-export const PoseOverlay: React.FC<PoseOverlayProps> = ({ pose }) => {
-  const lastAiFeedback = useLivePoseStore((state) => state.lastAiFeedback);
-  const currentLivePose = useLivePoseStore((state) => state.currentLivePose);
+// 音频分析 Hook（简化版 - 使用模拟数据）
+const useAudioAnalysis = () => {
+  const [audioLevel, setAudioLevel] = useState(0);
 
-  const suggestion = lastAiFeedback;
-  const isVisible = !!lastAiFeedback;
-
-  const [renderSuggestion, setRenderSuggestion] = useState(suggestion);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  // Sync suggestion for exit animation
   useEffect(() => {
-    if (isVisible) {
-      setRenderSuggestion(suggestion);
-    }
-  }, [isVisible, suggestion]);
+    // 简化版：使用随机值模拟音频音量
+    // 实际应用中应该连接到 AudioContext 的 AnalyserNode
+    const interval = setInterval(() => {
+      setAudioLevel(Math.random() * 0.3); // 0-0.3 范围
+    }, 100);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  return audioLevel;
+};
+
+// 单条弹幕组件（带打字机效果 + 音频同步动画）
+const FeedbackBubble: React.FC<{ item: FeedbackItem; index: number }> = ({ item, index }) => {
+  const [displayedText, setDisplayedText] = useState('');
+  const [isTyping, setIsTyping] = useState(true);
+  const audioLevel = useAudioAnalysis();
+
+  // 打字机效果
+  useEffect(() => {
+    setDisplayedText('');
+    setIsTyping(true);
+
+    let charIndex = 0;
+    const text = item.text;
+
+    const typeInterval = setInterval(() => {
+      if (charIndex < text.length) {
+        setDisplayedText(text.slice(0, charIndex + 1));
+        charIndex++;
+      } else {
+        clearInterval(typeInterval);
+        setIsTyping(false);
+      }
+    }, 30); // 30ms 每个字符
+
+    return () => {
+      clearInterval(typeInterval);
+    };
+  }, [item.text, item.id]);
+
+  // 根据音频音量计算动画强度
+  const waveHeight = 12 + audioLevel * 8; // 12-20px
+  const textScale = 1 + audioLevel * 0.05; // 1.0-1.05x
+
+  return (
+    <motion.div
+      initial={{ x: 300, opacity: 0, scale: 0.9 }}
+      animate={{ x: 0, opacity: 1, scale: 1 }}
+      exit={{ x: -100, opacity: 0, scale: 0.95 }}
+      transition={{
+        type: 'spring',
+        stiffness: 260,
+        damping: 20,
+        delay: index * 0.05,
+      }}
+      className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-black/70 backdrop-blur-xl border-l-4 border-mcai-accent shadow-[0_4px_20px_rgba(0,0,0,0.3)]"
+    >
+      {/* Voice Wave Animation Icon - 根据音量跳动 */}
+      <div className="flex items-end gap-[2px] h-4 flex-shrink-0">
+        {[0, 150, 300].map((delay, i) => (
+          <motion.div
+            key={i}
+            className="w-[3px] bg-mcai-accent rounded-full"
+            animate={{
+              height: isTyping || audioLevel > 0.1 ? `${waveHeight}px` : '8px',
+            }}
+            transition={{
+              duration: 0.3,
+              delay: delay / 1000,
+              repeat: Infinity,
+              repeatType: 'reverse',
+            }}
+          />
+        ))}
+      </div>
+
+      {/* 文字 - 根据音量呼吸 */}
+      <motion.p
+        className="text-white font-medium text-sm leading-tight drop-shadow-md"
+        animate={{
+          scale: isTyping || audioLevel > 0.1 ? textScale : 1,
+        }}
+        transition={{
+          duration: 0.2,
+        }}
+      >
+        {displayedText}
+        {isTyping && <span className="animate-pulse">|</span>}
+      </motion.p>
+    </motion.div>
+  );
+};
+
+export const PoseOverlay: React.FC<PoseOverlayProps> = ({ pose }) => {
+  const feedbackQueue = useLivePoseStore((state) => state.feedbackQueue);
+  const currentLivePose = useLivePoseStore((state) => state.currentLivePose);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Draw Skeleton on Canvas
   useEffect(() => {
@@ -87,31 +175,19 @@ export const PoseOverlay: React.FC<PoseOverlayProps> = ({ pose }) => {
     <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
       <div className="relative w-full h-full flex flex-col items-center justify-center">
 
-        {/* 
-            AI Guidance Bubble 
+        {/*
+            AI Guidance Bubble Queue
+            弹幕从右上角飞入，垂直堆叠，最新的在最上面
         */}
-        <div className="absolute top-[18%] left-0 right-0 flex justify-center z-20 overflow-visible h-20">
-          <div
-            className={`
-                bg-black/60 backdrop-blur-xl px-5 py-3 rounded-full border border-mcai-accent/60 shadow-[0_8px_32px_rgba(0,0,0,0.4)] flex items-center gap-3
-                transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]
-                ${isVisible ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-2 scale-95'}
-            `}
-          >
-            {/* Voice Wave Animation Icon */}
-            <div className="flex items-center gap-[2px] h-3">
-              <div className="w-[3px] bg-mcai-accent rounded-full animate-[bounce_1.2s_infinite]" />
-              <div className="w-[3px] bg-mcai-accent rounded-full animate-[bounce_0.9s_infinite]" style={{ animationDelay: '0.1s' }} />
-              <div className="w-[3px] bg-mcai-accent rounded-full animate-[bounce_1.4s_infinite]" style={{ animationDelay: '0.2s' }} />
-            </div>
-
-            <p className="text-white font-medium text-sm leading-none pt-[1px] drop-shadow-md whitespace-nowrap">
-              {renderSuggestion}
-            </p>
-          </div>
+        <div className="absolute top-[12%] right-4 flex flex-col items-end gap-2 z-20 max-w-[80%]">
+          <AnimatePresence mode="popLayout">
+            {feedbackQueue.map((item, index) => (
+              <FeedbackBubble key={item.id} item={item} index={index} />
+            ))}
+          </AnimatePresence>
         </div>
 
-        {/* 
+        {/*
             Real-time Skeleton Overlay (Canvas)
             Replaces the static ghost image
         */}

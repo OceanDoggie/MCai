@@ -3,77 +3,77 @@ import { Pose, PoseCategory, PoseDifficulty } from '../types';
 export const MOCK_POSES: Pose[] = [
   {
     id: 'p1',
-    title: 'The Lean',
-    description: 'Casual leaning against a wall, one leg crossed.',
-    imageSrc: 'https://picsum.photos/id/1012/400/600',
+    title: 'Confident Stance',
+    description: '2 arms (1.8m) | 1x | Chest Level | Inward 15°',
+    imageSrc: '/input_photos/pose1.png',
     category: PoseCategory.FULL_BODY,
-    tags: ['Casual', 'Street', 'Relaxed'],
+    tags: ['Confident', 'Fashion', 'Editorial'],
     difficulty: PoseDifficulty.EASY,
-    tips: ['Lean back gently', 'Cross the outer leg', 'Look away from camera'],
+    tips: ['Chin high and look slightly away', 'Create space with your elbow', 'Cross your front leg'],
     structure: {
-      head: 'Tilt slightly away from the wall, chin down.',
-      hands: 'One hand in pocket, other relaxing by side.',
-      feet: 'Cross outer leg over inner leg, toe pointed.'
+      head: 'Chin high and look slightly away with a confident gaze.',
+      hands: 'Rest your hand on your waist and pull your elbow back to create space.',
+      feet: 'Cross your front leg over and point your toe toward the camera.'
     }
   },
   {
     id: 'p2',
-    title: 'Hair Tuck',
-    description: 'One hand gently tucking hair behind ear.',
-    imageSrc: 'https://picsum.photos/id/1027/400/600',
-    category: PoseCategory.PORTRAIT,
-    tags: ['Feminine', 'Soft', 'Headshot'],
+    title: 'Wall Lean',
+    description: '2 arms (2.0m) | 1x | Chest Level | Inward 15°',
+    imageSrc: '/input_photos/pose2.png',
+    category: PoseCategory.FULL_BODY,
+    tags: ['Relaxed', 'Soft', 'Casual'],
     difficulty: PoseDifficulty.EASY,
-    tips: ['Relax your shoulder', 'Soft fingers', 'Chin slightly down'],
+    tips: ['Lean back against the wall', 'Bring hands to hair', 'Keep expression soft'],
     structure: {
-      head: 'Face camera directly, slight tilt to left.',
-      hands: 'Right hand tucking hair, fingers distinct.',
-      feet: 'N/A (Portrait focus).'
+      head: 'Lean your head back against the wall and keep your expression soft.',
+      hands: 'Bring both hands up to your hair and let your elbows go wide.',
+      feet: 'Lean your hip into the wall and keep your legs long and straight.'
     }
   },
   {
     id: 'p3',
-    title: 'Walking Away',
-    description: 'Walking away from camera, looking back over shoulder.',
-    imageSrc: 'https://picsum.photos/id/1059/400/600',
+    title: 'Kneeling Pose',
+    description: '1 arm (1.2m) | 2x | Neck Level | Outward 10°',
+    imageSrc: '/input_photos/pose3.png',
     category: PoseCategory.FULL_BODY,
-    tags: ['Motion', 'Street', 'Candid'],
+    tags: ['Dynamic', 'Focused', 'Athletic'],
     difficulty: PoseDifficulty.MEDIUM,
-    tips: ['Take a large step', 'Turn torso back', 'Don\'t look at lens directly'],
+    tips: ['Chin down slightly', 'Lift one arm overhead', 'Kneel with one leg forward'],
     structure: {
-      head: 'Turn back over shoulder, eyes on horizon.',
-      hands: 'Natural swing, or one holding bag.',
-      feet: 'Mid-stride, back heel lifted.'
+      head: 'Chin down slightly and look toward your shoulder for a focused look.',
+      hands: 'Lift one arm over your head and rest the other hand on your thigh.',
+      feet: 'Kneel down with one leg forward and sit back slightly on your heels.'
     }
   },
   {
     id: 'p4',
-    title: 'Coffee Date',
-    description: 'Holding a cup with both hands, elbows on table.',
-    imageSrc: 'https://picsum.photos/id/1060/400/600',
-    category: PoseCategory.HALF_BODY,
-    tags: ['Lifestyle', 'Cafe', 'Cozy'],
-    difficulty: PoseDifficulty.EASY,
-    tips: ['Lean forward', 'Engage with the lens', 'Relax shoulders'],
+    title: 'Reaching High',
+    description: '4 arms (3.0m) | 1x | Knee Level | Inward 15°',
+    imageSrc: '/input_photos/pose4.png',
+    category: PoseCategory.FULL_BODY,
+    tags: ['Dramatic', 'Stretch', 'Expressive'],
+    difficulty: PoseDifficulty.HARD,
+    tips: ['Tilt head back', 'Stretch one arm high', 'Stand on tiptoes'],
     structure: {
-      head: 'Level gaze, engaging smile.',
-      hands: 'Both hands wrapping the cup, elbows wide.',
-      feet: 'Hidden under table.'
+      head: 'Tilt your head back and look up toward your raised hand.',
+      hands: 'Stretch one arm as high as you can while keeping the other relaxed.',
+      feet: 'Cross your legs at the ankles and stand on your tiptoes for extra height.'
     }
   },
   {
     id: 'p5',
-    title: 'Power Suit',
-    description: 'Arms crossed, legs shoulder width apart, confident stance.',
-    imageSrc: 'https://picsum.photos/id/1070/400/600',
+    title: 'Graceful Reach',
+    description: '2 arms (1.8m) | 1x | Chest Level | Inward 15°',
+    imageSrc: '/input_photos/pose5.png',
     category: PoseCategory.FULL_BODY,
-    tags: ['Business', 'Strong', 'Confident'],
+    tags: ['Elegant', 'Graceful', 'Expressive'],
     difficulty: PoseDifficulty.MEDIUM,
-    tips: ['Stand tall', 'Chest out', 'Firm gaze'],
+    tips: ['Chin high', 'One hand on chest', 'Lean into the reach'],
     structure: {
-      head: 'Chin up, direct eye contact.',
-      hands: 'Arms crossed high on chest.',
-      feet: 'Shoulder-width apart, weight even.'
+      head: 'Chin high and follow the line of your reaching arm with your eyes.',
+      hands: 'Place one hand flat on your chest and reach the other out gracefully.',
+      feet: 'Stand with your feet together and lean your torso slightly into the reach.'
     }
   },
   {

@@ -218,7 +218,8 @@ export const useLiveSession = () => {
         const pcmData = base64ToArrayBuffer(base64Audio);
         const floatData = int16ToFloat32(pcmData);
 
-        const buffer = ctx.createBuffer(1, floatData.length, 16000);
+        // Gemini Live API outputs audio at 24kHz (not 16kHz!)
+        const buffer = ctx.createBuffer(1, floatData.length, 24000);
         buffer.getChannelData(0).set(floatData);
 
         const source = ctx.createBufferSource();
@@ -243,7 +244,47 @@ export const useLiveSession = () => {
         }
     }, []);
 
-    return { status, connect, disconnect, sendExactFrame };
+    // --- Pose Landmarks Send ---
+    const sendPoseData = useCallback((landmarks: Array<{x: number, y: number, z: number, visibility?: number}>) => {
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+            // 只发送关键点的简化数据
+            const simplifiedLandmarks = landmarks.map((lm, idx) => ({
+                idx,
+                x: Math.round(lm.x * 1000) / 1000,  // 保留3位小数
+                y: Math.round(lm.y * 1000) / 1000,
+                z: Math.round(lm.z * 1000) / 1000,
+                v: Math.round((lm.visibility ?? 1) * 100) / 100
+            }));
+            wsRef.current.send(JSON.stringify({ type: 'pose', data: simplifiedLandmarks }));
+        }
+    }, []);
+
+    // --- Set Target Pose (告诉 Gemini 用户选了哪个姿势) ---
+    const setTargetPose = useCallback((pose: {
+        id: string;
+        title: string;
+        description: string;
+        structure: { head: string; hands: string; feet: string };
+        tips: string[];
+    }) => {
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+            console.log('[LiveSession] Setting target pose:', pose.title);
+            wsRef.current.send(JSON.stringify({
+                type: 'set_target_pose',
+                data: {
+                    id: pose.id,
+                    name: pose.title,
+                    description: pose.description,
+                    head: pose.structure.head,
+                    hands: pose.structure.hands,
+                    feet: pose.structure.feet,
+                    tips: pose.tips
+                }
+            }));
+        }
+    }, []);
+
+    return { status, connect, disconnect, sendExactFrame, sendPoseData, setTargetPose };
 };
 
 // --- Helpers ---
