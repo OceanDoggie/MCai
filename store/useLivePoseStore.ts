@@ -13,6 +13,14 @@ interface LivePoseState {
   currentLivePose: Landmark[] | null;
   setCurrentLivePose: (landmarks: Landmark[] | null) => void;
 
+  // AI 语音音量 (0-1)，用于同步弹幕动画
+  audioLevel: number;
+  setAudioLevel: (level: number) => void;
+
+  // AI 是否正在说话
+  isSpeaking: boolean;
+  setIsSpeaking: (speaking: boolean) => void;
+
   // AI Feedback Queue (最新的在前面)
   feedbackQueue: FeedbackItem[];
 
@@ -36,6 +44,12 @@ const FEEDBACK_TTL = 4000; // 4秒后淡出
 export const useLivePoseStore = create<LivePoseState>((set, get) => ({
   currentLivePose: null,
   setCurrentLivePose: (landmarks) => set({ currentLivePose: landmarks }),
+
+  audioLevel: 0,
+  setAudioLevel: (level) => set({ audioLevel: level }),
+
+  isSpeaking: false,
+  setIsSpeaking: (speaking) => set({ isSpeaking: speaking }),
 
   feedbackQueue: [],
 

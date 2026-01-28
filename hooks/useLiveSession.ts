@@ -210,7 +210,7 @@ export const useLiveSession = () => {
         }
     }, [cleanupSession]);
 
-    // --- Audio Playback (Server -> Speaker) ---
+    // --- Audio Playback (Server -> Speaker) with Volume Analysis ---
     const playAudioChunk = (base64Audio: string) => {
         if (!audioContextRef.current) return;
         const ctx = audioContextRef.current;
@@ -218,13 +218,30 @@ export const useLiveSession = () => {
         const pcmData = base64ToArrayBuffer(base64Audio);
         const floatData = int16ToFloat32(pcmData);
 
+        // 计算音频音量 (RMS)
+        let sum = 0;
+        for (let i = 0; i < floatData.length; i++) {
+            sum += floatData[i] * floatData[i];
+        }
+        const rms = Math.sqrt(sum / floatData.length);
+        const normalizedLevel = Math.min(1, rms * 3); // 放大并限制在0-1
+
+        // 更新 store 中的音量状态
+        useLivePoseStore.getState().setAudioLevel(normalizedLevel);
+        useLivePoseStore.getState().setIsSpeaking(true);
+
         // Gemini Live API outputs audio at 24kHz (not 16kHz!)
         const buffer = ctx.createBuffer(1, floatData.length, 24000);
         buffer.getChannelData(0).set(floatData);
 
         const source = ctx.createBufferSource();
         source.buffer = buffer;
-        source.connect(ctx.destination);
+
+        // 创建分析器节点用于实时音量监测
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 256;
+        source.connect(analyser);
+        analyser.connect(ctx.destination);
 
         // Simple queueing to prevent overlap/gaps
         const currentTime = ctx.currentTime;
@@ -232,7 +249,15 @@ export const useLiveSession = () => {
             nextStartTimeRef.current = currentTime;
         }
         source.start(nextStartTimeRef.current);
-        nextStartTimeRef.current += buffer.duration;
+
+        // 音频播放结束后重置状态
+        const duration = buffer.duration;
+        setTimeout(() => {
+            useLivePoseStore.getState().setAudioLevel(0);
+            useLivePoseStore.getState().setIsSpeaking(false);
+        }, (nextStartTimeRef.current - currentTime + duration) * 1000);
+
+        nextStartTimeRef.current += duration;
     };
 
     // --- Video/Image Send ---

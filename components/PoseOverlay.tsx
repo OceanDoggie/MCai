@@ -21,28 +21,18 @@ const CONNECTIONS = [
   [9, 10] // Mouth
 ];
 
-// 音频分析 Hook（简化版 - 使用模拟数据）
+// 从 store 获取真实的音频音量
 const useAudioAnalysis = () => {
-  const [audioLevel, setAudioLevel] = useState(0);
-
-  useEffect(() => {
-    // 简化版：使用随机值模拟音频音量
-    // 实际应用中应该连接到 AudioContext 的 AnalyserNode
-    const interval = setInterval(() => {
-      setAudioLevel(Math.random() * 0.3); // 0-0.3 范围
-    }, 100);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  return audioLevel;
+  const audioLevel = useLivePoseStore((state) => state.audioLevel);
+  const isSpeaking = useLivePoseStore((state) => state.isSpeaking);
+  return { audioLevel, isSpeaking };
 };
 
 // 单条弹幕组件（带打字机效果 + 音频同步动画）
 const FeedbackBubble: React.FC<{ item: FeedbackItem; index: number }> = ({ item, index }) => {
   const [displayedText, setDisplayedText] = useState('');
   const [isTyping, setIsTyping] = useState(true);
-  const audioLevel = useAudioAnalysis();
+  const { audioLevel, isSpeaking } = useAudioAnalysis();
 
   // 打字机效果
   useEffect(() => {
@@ -68,8 +58,9 @@ const FeedbackBubble: React.FC<{ item: FeedbackItem; index: number }> = ({ item,
   }, [item.text, item.id]);
 
   // 根据音频音量计算动画强度
-  const waveHeight = 12 + audioLevel * 8; // 12-20px
-  const textScale = 1 + audioLevel * 0.05; // 1.0-1.05x
+  const waveHeight = 12 + audioLevel * 12; // 12-24px（音量越大跳越高）
+  const textScale = 1 + audioLevel * 0.08; // 1.0-1.08x（音量越大文字越大）
+  const glowIntensity = audioLevel * 0.5; // 发光强度
 
   return (
     <motion.div
@@ -85,36 +76,43 @@ const FeedbackBubble: React.FC<{ item: FeedbackItem; index: number }> = ({ item,
       className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-black/70 backdrop-blur-xl border-l-4 border-mcai-accent shadow-[0_4px_20px_rgba(0,0,0,0.3)]"
     >
       {/* Voice Wave Animation Icon - 根据音量跳动 */}
-      <div className="flex items-end gap-[2px] h-4 flex-shrink-0">
-        {[0, 150, 300].map((delay, i) => (
+      <div className="flex items-end gap-[2px] h-5 flex-shrink-0">
+        {[0, 100, 200].map((delay, i) => (
           <motion.div
             key={i}
             className="w-[3px] bg-mcai-accent rounded-full"
             animate={{
-              height: isTyping || audioLevel > 0.1 ? `${waveHeight}px` : '8px',
+              height: isTyping || isSpeaking ? `${waveHeight + (i === 1 ? 4 : 0)}px` : '6px',
+              opacity: isTyping || isSpeaking ? 1 : 0.5,
             }}
             transition={{
-              duration: 0.3,
-              delay: delay / 1000,
-              repeat: Infinity,
-              repeatType: 'reverse',
+              height: {
+                duration: 0.15,
+                delay: delay / 1000,
+                repeat: isSpeaking ? Infinity : 0,
+                repeatType: 'reverse',
+              },
+              opacity: { duration: 0.2 },
             }}
           />
         ))}
       </div>
 
-      {/* 文字 - 根据音量呼吸 */}
+      {/* 文字 - 根据音量呼吸 + 发光效果 */}
       <motion.p
-        className="text-white font-medium text-sm leading-tight drop-shadow-md"
+        className="text-white font-medium text-sm leading-tight"
         animate={{
-          scale: isTyping || audioLevel > 0.1 ? textScale : 1,
+          scale: isTyping || isSpeaking ? textScale : 1,
+          textShadow: isSpeaking
+            ? `0 0 ${10 + glowIntensity * 20}px rgba(242, 169, 59, ${0.3 + glowIntensity})`
+            : '0 0 4px rgba(0,0,0,0.5)',
         }}
         transition={{
-          duration: 0.2,
+          duration: 0.1,
         }}
       >
         {displayedText}
-        {isTyping && <span className="animate-pulse">|</span>}
+        {isTyping && <span className="animate-pulse text-mcai-accent">|</span>}
       </motion.p>
     </motion.div>
   );
