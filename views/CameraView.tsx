@@ -7,6 +7,9 @@ import { detectPose, initPoseDetector } from '../utils/mediaPipeService';
 import { PoseCategory } from '../types';
 import { useLiveSession } from '../hooks/useLiveSession';
 import { PoseOverlay } from '../components/PoseOverlay';
+import { StepIndicator } from '../components/StepIndicator';
+import { DebugOverlay } from '../components/DebugOverlay';
+import { GridHighlightOverlay } from '../components/GridHighlightOverlay';
 
 export const CameraView: React.FC = () => {
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -265,12 +268,15 @@ export const CameraView: React.FC = () => {
                 </div>
             )}
 
-            {/* Grid Lines */}
+            {/* Grid Lines (static base) */}
             <div className="absolute inset-0 pointer-events-none opacity-20 z-10">
                 <div className="w-full h-full border-x border-white/30 grid grid-cols-3 grid-rows-3">
                     {[...Array(9)].map((_, i) => <div key={i} className="border border-white/30" />)}
                 </div>
             </div>
+
+            {/* Grid Highlight Overlay (dynamic feedback) */}
+            <GridHighlightOverlay />
 
             <div className="absolute inset-0 z-20 flex flex-col justify-between pointer-events-none">
 
@@ -358,6 +364,9 @@ export const CameraView: React.FC = () => {
                     {/* RIGHT SIDEBAR (Ultra-narrow 1/6 column, strictly right grid) */}
                     <div className="w-[16.6%] flex flex-col pointer-events-auto gap-2 ml-auto h-full max-h-[85vh] overflow-visible z-30 pt-4 px-1">
 
+                        {/* Coach Mode Step Indicator */}
+                        <StepIndicator className="shrink-0" />
+
                         {activePose && (
                             <div className="flex flex-col gap-1.5 shrink-0">
                                 <div className="bg-black/60 backdrop-blur-md rounded-lg border border-white/10 p-1.5">
@@ -398,6 +407,9 @@ export const CameraView: React.FC = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Debug Overlay (togglable) */}
+            <DebugOverlay />
         </div>
     );
 };

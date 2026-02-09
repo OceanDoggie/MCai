@@ -44,6 +44,12 @@ export const useLiveSession = () => {
             audioContextRef.current = null;
         }
 
+        // Clear coach state on disconnect
+        useLivePoseStore.getState().setCoachState(null);
+        useLivePoseStore.getState().setCoachDebugInfo(null);
+        useLivePoseStore.getState().clearSubtitle();
+        useLivePoseStore.getState().setGridHighlights([]);
+
         setStatus('disconnected');
     }, []);
 
@@ -198,6 +204,27 @@ export const useLiveSession = () => {
                         playAudioChunk(msg.data);
                     } else if (msg.type === 'text') {
                         useLivePoseStore.getState().setLastAiFeedback(msg.data);
+                    } else if (msg.type === 'coach_state') {
+                        // Coach mode state update
+                        console.log('[LiveSession] Coach state update:', msg.data);
+                        useLivePoseStore.getState().setCoachState(msg.data);
+                    } else if (msg.type === 'coach_debug') {
+                        // Coach debug info for overlay
+                        console.log('[LiveSession] Coach debug info:', msg.data);
+                        useLivePoseStore.getState().setCoachDebugInfo(msg.data);
+                    } else if (msg.type === 'phase_change') {
+                        console.log('[LiveSession] Phase change:', msg.phase);
+                    } else if (msg.type === 'shutter') {
+                        console.log('[LiveSession] Shutter triggered, shot #', msg.shot_number);
+                    } else if (msg.type === 'pose_analyzed') {
+                        console.log('[LiveSession] Pose analyzed:', msg.data.title);
+                    } else if (msg.type === 'target_pose_set') {
+                        console.log('[LiveSession] Target pose set:', msg.data.pose_name);
+                    } else if (msg.type === 'poses_list') {
+                        console.log('[LiveSession] Poses list received:', msg.data.length, 'poses');
+                    } else if (msg.type === 'grid_highlight') {
+                        // Grid highlight updates for UI feedback
+                        useLivePoseStore.getState().setGridHighlights(msg.highlights || []);
                     }
                 } catch (e) {
                     console.error("Parse message error", e);

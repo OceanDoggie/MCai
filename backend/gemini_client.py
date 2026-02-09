@@ -18,21 +18,21 @@ class GeminiLiveClient:
         if self.api_key.startswith("TODO") or len(self.api_key) < 10:
              logger.warning("GEMINI_API_KEY looks invalid (starts with TODO or too short). Check .env file.")
         
-        self.client = genai.Client(api_key=self.api_key, http_options={"api_version": "v1alpha"})
-        # Using stable Gemini 2.0 Flash model
-        self.model = "models/gemini-2.0-flash-exp"
+        self.client = genai.Client(api_key=self.api_key, http_options={"api_version": "v1beta"})
+        # 使用官方Live API专用模型
+        self.model = "gemini-2.5-flash-native-audio-preview-12-2025"
 
     def connect(self, system_instruction: str = None):
         """
         Returns the async context manager for the connection.
         """
-        # 最简配置 - 只请求音频响应
         config = {
-            "response_modalities": ["AUDIO"]
+            "response_modalities": ["AUDIO"],
+            "output_audio_transcription": {},
+            "thinking_config": {"thinking_budget": 0}  # Disable thinking tokens
         }
-        
-        # 暂时注释掉 system_instruction，先测试基础连接
-        # if system_instruction:
-        #     config["system_instruction"] = {"parts": [{"text": system_instruction}]}
-            
+
+        if system_instruction:
+            config["system_instruction"] = system_instruction
+
         return self.client.aio.live.connect(model=self.model, config=config)

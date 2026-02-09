@@ -1,0 +1,66 @@
+{
+  "confident-stance": {
+    "id": "confident-stance",
+    "title": "自信站姿",
+    "difficulty": "Easy",
+    "description": "2 arms (1.8m) | 1x | Chest Level | Inward 15°",
+    "structure": {
+      "head": "Chin high and look slightly away with a confident gaze.",
+      "hands": "Rest your hand on your waist and pull your elbow back to create space.",
+      "feet": "Cross your front leg over and point your toe toward the camera."
+    },
+    "tips": [
+      "保持背部挺直",
+      "肩膀自然下沉",
+      "视线看向镜头偏上方"
+    ],
+    "tags": [
+      "站姿",
+      "全身",
+      "简单"
+    ]
+  },
+  "wall-lean": {
+    "id": "wall-lean",
+    "title": "墙靠姿势",
+    "difficulty": "Easy",
+    "description": "2 arms (2.0m) | 1x | Chest Level | Inward 15°",
+    "structure": {
+      "head": "Lean your head back against the wall and keep your expression soft.",
+      "hands": "Bring both hands up to your hair and let your elbows go wide.",
+      "feet": "Lean your hip into the wall and keep your legs long and straight."
+    },
+    "tips": [
+      "头部贴墙，表情放松",
+      "双手自然上扬",
+      "一侧臀部靠墙"
+    ],
+    "tags": [
+      "站姿",
+      "全身",
+      "简单",
+      "靠墙"
+    ]
+  },
+  "": {
+    "id": "",
+    "title": "性感蹲姿",
+    "difficulty": "Easy",
+    "description": "1 arm (1.2m) | 1.5x | Chest Level | Outward 5°",
+    "structure": {
+      "head": "Slightly tilted head with a direct gaze at the camera, hair flowing naturally to one side.",
+      "hands": "One hand resting lightly on the ground for support, the other hand resting gently on the knee.",
+      "feet": "Kneeling position with one leg bent at the knee and the other foot flat on the ground."
+    },
+    "tips": [
+      "利用自然光，避免过于强烈的直射光",
+      "选择简洁的背景，突出人物",
+      "引导模特放松，展现自然状态"
+    ],
+    "tags": [
+      "性感",
+      "时尚",
+      "亚洲女性"
+    ]
+  }
+}

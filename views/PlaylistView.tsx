@@ -4,7 +4,6 @@ import { usePlaylistStore } from '../store/usePlaylistStore';
 import { useUIStore } from '../store/useUIStore';
 import { Reorder, motion, AnimatePresence } from 'framer-motion';
 import { PlaylistItem, PoseCategory, PoseDifficulty } from '../types';
-import { analyzePoseImage } from '../services/gemini';
 import { detectPoseFromImage } from '../utils/mediaPipeService';
 import { generateStaticGuidance } from '../utils/poseGuidance';
 
@@ -51,29 +50,21 @@ export const PlaylistView: React.FC = () => {
         const file = event.target.files?.[0];
         if (!file) return;
 
-        // 检查 API Key 是否配置
-        const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-        if (!apiKey) {
-            showToast("请在 .env.local 中配置 VITE_GEMINI_API_KEY");
-            if (fileInputRef.current) fileInputRef.current.value = '';
-            return;
-        }
-
         setIsAnalyzing(true);
-        showToast("AI analyzing your photo...");
+        showToast("Analyzing your photo...");
 
         const reader = new FileReader();
         reader.onloadend = async () => {
             let base64String = reader.result as string;
 
             try {
-                // --- 1. Compress Image to avoid Quota/Payload limits ---
+                // --- 1. Compress Image ---
                 const img = new Image();
                 img.src = base64String;
                 await new Promise((resolve) => { img.onload = resolve; });
 
                 const canvas = document.createElement('canvas');
-                const MAX_WIDTH = 800; // Limit resolution for AI analysis
+                const MAX_WIDTH = 800;
                 let width = img.width;
                 let height = img.height;
                 if (width > MAX_WIDTH) {
@@ -84,24 +75,43 @@ export const PlaylistView: React.FC = () => {
                 canvas.height = height;
                 const ctx = canvas.getContext('2d');
                 ctx?.drawImage(img, 0, 0, width, height);
-                base64String = canvas.toDataURL('image/jpeg', 0.7); // Compress quality
+                base64String = canvas.toDataURL('image/jpeg', 0.7);
 
-                // --- 2. Parallel Processing ---
-                const geminiPromise = analyzePoseImage(base64String, file.name);
+                // --- 2. Parallel: MediaPipe local + backend AI analysis ---
                 const mediapipePromise = detectPoseFromImage(img);
+                const analyzePromise = fetch('http://localhost:8000/api/analyze-pose', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: base64String, source_name: file.name })
+                }).then(res => {
+                    if (!res.ok) throw new Error(`Backend error: ${res.status}`);
+                    return res.json();
+                });
 
-                const [geminiAnalysis, poseResult] = await Promise.all([
-                    geminiPromise,
-                    mediapipePromise
+                const [poseResult, geminiAnalysis] = await Promise.all([
+                    mediapipePromise.catch(err => {
+                        console.warn("MediaPipe detection failed:", err);
+                        return { landmarks: [[]] };
+                    }),
+                    analyzePromise.catch(err => {
+                        console.warn("Backend analysis failed, using fallback:", err);
+                        return {
+                            title: "New Pose",
+                            description: "AI analysis unavailable",
+                            tags: ["Custom"],
+                            difficulty: "Medium",
+                            tips: ["Replicate the photo"],
+                            structure: { head: "Natural", hands: "Relaxed", feet: "Stable" }
+                        };
+                    })
                 ]);
 
-                const landmarks = poseResult.landmarks[0];
+                const landmarks = poseResult.landmarks?.[0] || [];
 
-                // --- 3. Construct Pose ---
                 const newPose = {
-                    id: `custom-${Date.now()}`,
+                    id: geminiAnalysis.pose_id ? `custom-${geminiAnalysis.pose_id}` : `custom-${Date.now()}`,
                     title: geminiAnalysis.title,
-                    description: geminiAnalysis.description,  // 使用 Gemini 生成的摄影师指导词
+                    description: geminiAnalysis.description,
                     imageSrc: base64String,
                     category: PoseCategory.SELFIE,
                     tags: geminiAnalysis.tags,
@@ -115,21 +125,12 @@ export const PlaylistView: React.FC = () => {
                 showToast("Analysis complete!");
             } catch (error: any) {
                 console.error("Analysis Error:", error);
-
-                // 🔴 改进错误提示，根据具体错误类型反馈
-                const isApiKeyError = error.message?.includes("API key");
-                const isQuotaError = error.message?.includes("429");
-
-                let errorMsg = "AI failed. Using offline mode.";
-                if (isApiKeyError) errorMsg = "AI配置错误: 缺少 API Key";
-                else if (isQuotaError) errorMsg = "AI服务繁忙 (429). 使用本地模式.";
-
-                showToast(errorMsg);
+                showToast("Analysis failed. Using offline mode.");
 
                 addToUnsorted({
                     id: `custom-${Date.now()}`,
                     title: "New Pose",
-                    description: errorMsg, // 把错误原因写入描述，方便调试
+                    description: "Offline mode",
                     imageSrc: base64String,
                     category: PoseCategory.SELFIE,
                     tags: ["Custom", "Offline"],

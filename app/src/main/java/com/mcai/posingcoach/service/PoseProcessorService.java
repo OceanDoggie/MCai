@@ -38,7 +38,8 @@ public class PoseProcessorService {
     }
 
     /**
-     * Asynchronously processes the source image to generate a sketch and guide text.
+     * Asynchronously processes the source image to generate a sketch and guide
+     * text.
      *
      * @param sourceImageUrl The URL of the source image to process.
      * @param callback       The callback to receive the result or error.
@@ -92,19 +93,21 @@ public class PoseProcessorService {
 
                 try {
                     JSONObject jsonResponse = new JSONObject(responseData);
-                    
+
                     // Robust parsing: check for result fields
-                    // API Contract assumed: { "result_sketch_url": "...", "pose_description": "..." }
-                    
+                    // API Contract assumed: { "result_sketch_url": "...", "pose_description": "..."
+                    // }
+
                     String sketchUrl = jsonResponse.optString("result_sketch_url", "");
                     String guideText = jsonResponse.optString("pose_description", "暂无引导");
 
                     if (sketchUrl.isEmpty()) {
-                         // Check for specific error message in JSON if API returns 200 OK but with logical error
-                         // e.g. { "status": "error", "message": "...." }
-                         String potentialError = jsonResponse.optString("message", "Unknown error in response data.");
-                         postError(callback, "No sketch URL found: " + potentialError);
-                         return;
+                        // Check for specific error message in JSON if API returns 200 OK but with
+                        // logical error
+                        // e.g. { "status": "error", "message": "...." }
+                        String potentialError = jsonResponse.optString("message", "Unknown error in response data.");
+                        postError(callback, "No sketch URL found: " + potentialError);
+                        return;
                     }
 
                     postSuccess(callback, sketchUrl, guideText);

@@ -18,16 +18,30 @@ export const ResultView: React.FC = () => {
     // Users can clear the playlist manually in the Playlist view.
   };
 
-  // Mock Data
+  // Score based on actual photos taken (0 photos = 0 score)
   const score = gallery.length > 0 ? Math.floor(Math.random() * (98 - 85) + 85) : 0;
-  const aiComments = [
-    "Lighting is absolutely on point! 📸",
-    "Great posture, very confident energy. 🔥",
-    "Angles are perfect, model potential! ✨",
-    "Nice variety of expressions today.",
-  ];
-  // Ensure we get a consistent comment for the render (in real app, this would be computed once)
-  const [comment] = useState(() => aiComments[Math.floor(Math.random() * aiComments.length)]);
+  const numStars = gallery.length > 0 ? 5 : 0;  // No photos = no stars
+
+  // AI comments based on actual performance
+  const getAiComment = () => {
+    if (gallery.length === 0) {
+      return "Session ended early. Try again for better results!";
+    } else if (gallery.length === 1) {
+      return "Good start! More shots next time for variety.";
+    } else if (gallery.length <= 3) {
+      return "Nice work! Keep practicing those poses.";
+    } else {
+      // Only give genuine praise for good sessions
+      const goodComments = [
+        "Lighting is on point!",
+        "Great posture throughout the session.",
+        "Nice variety of expressions!",
+        "Really solid pose work today.",
+      ];
+      return goodComments[Math.floor(Math.random() * goodComments.length)];
+    }
+  };
+  const [comment] = useState(getAiComment);
 
   // Identify "Best" shots (randomly pick 1-2 indices if gallery exists)
   const [bestShotIndices] = useState(() => 
@@ -51,7 +65,14 @@ export const ResultView: React.FC = () => {
             <h1 className="text-6xl font-black mt-2 tracking-tighter italic font-sans">{score}</h1>
             <div className="flex gap-1 mt-2">
                 {[1,2,3,4,5].map(i => (
-                    <Star key={i} size={14} className="text-mcai-accent fill-mcai-accent" />
+                    <Star
+                      key={i}
+                      size={14}
+                      className={i <= numStars
+                        ? "text-mcai-accent fill-mcai-accent"
+                        : "text-gray-600"
+                      }
+                    />
                 ))}
             </div>
             <p className="text-mcai-subtext text-xs uppercase tracking-widest mt-2 font-bold">Session Score</p>

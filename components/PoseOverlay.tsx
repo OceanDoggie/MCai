@@ -1,6 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Pose } from '../types';
-import { useLivePoseStore, FeedbackItem } from '../store/useLivePoseStore';
+import { useLivePoseStore } from '../store/useLivePoseStore';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface PoseOverlayProps {
@@ -21,105 +21,76 @@ const CONNECTIONS = [
   [9, 10] // Mouth
 ];
 
-// 从 store 获取真实的音频音量
-const useAudioAnalysis = () => {
-  const audioLevel = useLivePoseStore((state) => state.audioLevel);
+// Bottom Subtitle Bar Component (Gemini Live style)
+const SubtitleBar: React.FC = () => {
+  const subtitleText = useLivePoseStore((state) => state.subtitleText);
+  const subtitleVisible = useLivePoseStore((state) => state.subtitleVisible);
   const isSpeaking = useLivePoseStore((state) => state.isSpeaking);
-  return { audioLevel, isSpeaking };
-};
+  const audioLevel = useLivePoseStore((state) => state.audioLevel);
 
-// 单条弹幕组件（带打字机效果 + 音频同步动画）
-const FeedbackBubble: React.FC<{ item: FeedbackItem; index: number }> = ({ item, index }) => {
-  const [displayedText, setDisplayedText] = useState('');
-  const [isTyping, setIsTyping] = useState(true);
-  const { audioLevel, isSpeaking } = useAudioAnalysis();
-
-  // 打字机效果
-  useEffect(() => {
-    setDisplayedText('');
-    setIsTyping(true);
-
-    let charIndex = 0;
-    const text = item.text;
-
-    const typeInterval = setInterval(() => {
-      if (charIndex < text.length) {
-        setDisplayedText(text.slice(0, charIndex + 1));
-        charIndex++;
-      } else {
-        clearInterval(typeInterval);
-        setIsTyping(false);
-      }
-    }, 30); // 30ms 每个字符
-
-    return () => {
-      clearInterval(typeInterval);
-    };
-  }, [item.text, item.id]);
-
-  // 根据音频音量计算动画强度
-  const waveHeight = 12 + audioLevel * 12; // 12-24px（音量越大跳越高）
-  const textScale = 1 + audioLevel * 0.08; // 1.0-1.08x（音量越大文字越大）
-  const glowIntensity = audioLevel * 0.5; // 发光强度
+  // Pulse effect based on audio level
+  const glowIntensity = isSpeaking ? 0.3 + audioLevel * 0.4 : 0;
 
   return (
-    <motion.div
-      initial={{ x: 300, opacity: 0, scale: 0.9 }}
-      animate={{ x: 0, opacity: 1, scale: 1 }}
-      exit={{ x: -100, opacity: 0, scale: 0.95 }}
-      transition={{
-        type: 'spring',
-        stiffness: 260,
-        damping: 20,
-        delay: index * 0.05,
-      }}
-      className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-black/70 backdrop-blur-xl border-l-4 border-mcai-accent shadow-[0_4px_20px_rgba(0,0,0,0.3)]"
-    >
-      {/* Voice Wave Animation Icon - 根据音量跳动 */}
-      <div className="flex items-end gap-[2px] h-5 flex-shrink-0">
-        {[0, 100, 200].map((delay, i) => (
-          <motion.div
-            key={i}
-            className="w-[3px] bg-mcai-accent rounded-full"
-            animate={{
-              height: isTyping || isSpeaking ? `${waveHeight + (i === 1 ? 4 : 0)}px` : '6px',
-              opacity: isTyping || isSpeaking ? 1 : 0.5,
+    <AnimatePresence>
+      {subtitleVisible && subtitleText && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 10 }}
+          transition={{ duration: 0.3, ease: 'easeOut' }}
+          className="absolute bottom-28 left-4 right-4 z-50 pointer-events-none"
+        >
+          <div
+            className="mx-auto max-w-lg px-5 py-3 rounded-2xl backdrop-blur-xl border border-white/10"
+            style={{
+              background: 'rgba(0, 0, 0, 0.75)',
+              boxShadow: isSpeaking
+                ? `0 0 20px rgba(242, 169, 59, ${glowIntensity}), 0 4px 20px rgba(0, 0, 0, 0.4)`
+                : '0 4px 20px rgba(0, 0, 0, 0.4)',
             }}
-            transition={{
-              height: {
-                duration: 0.15,
-                delay: delay / 1000,
-                repeat: isSpeaking ? Infinity : 0,
-                repeatType: 'reverse',
-              },
-              opacity: { duration: 0.2 },
-            }}
-          />
-        ))}
-      </div>
+          >
+            <div className="flex items-center gap-3">
+              {/* Voice indicator */}
+              <div className="flex items-end gap-[2px] h-4 flex-shrink-0">
+                {[0, 1, 2].map((i) => (
+                  <motion.div
+                    key={i}
+                    className="w-[3px] bg-mcai-accent rounded-full"
+                    animate={{
+                      height: isSpeaking
+                        ? `${8 + audioLevel * 8 + (i === 1 ? 4 : 0)}px`
+                        : '4px',
+                      opacity: isSpeaking ? 1 : 0.5,
+                    }}
+                    transition={{
+                      height: { duration: 0.1 },
+                      opacity: { duration: 0.2 },
+                    }}
+                  />
+                ))}
+              </div>
 
-      {/* 文字 - 根据音量呼吸 + 发光效果 */}
-      <motion.p
-        className="text-white font-medium text-sm leading-tight"
-        animate={{
-          scale: isTyping || isSpeaking ? textScale : 1,
-          textShadow: isSpeaking
-            ? `0 0 ${10 + glowIntensity * 20}px rgba(242, 169, 59, ${0.3 + glowIntensity})`
-            : '0 0 4px rgba(0,0,0,0.5)',
-        }}
-        transition={{
-          duration: 0.1,
-        }}
-      >
-        {displayedText}
-        {isTyping && <span className="animate-pulse text-mcai-accent">|</span>}
-      </motion.p>
-    </motion.div>
+              {/* Subtitle text */}
+              <motion.p
+                className="text-white text-sm font-medium leading-relaxed"
+                animate={{
+                  textShadow: isSpeaking
+                    ? `0 0 8px rgba(242, 169, 59, ${glowIntensity})`
+                    : 'none',
+                }}
+              >
+                {subtitleText}
+              </motion.p>
+            </div>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 };
 
 export const PoseOverlay: React.FC<PoseOverlayProps> = ({ pose }) => {
-  const feedbackQueue = useLivePoseStore((state) => state.feedbackQueue);
   const currentLivePose = useLivePoseStore((state) => state.currentLivePose);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -173,22 +144,10 @@ export const PoseOverlay: React.FC<PoseOverlayProps> = ({ pose }) => {
     <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
       <div className="relative w-full h-full flex flex-col items-center justify-center">
 
-        {/*
-            AI Guidance Bubble Queue
-            弹幕从右上角飞入，垂直堆叠，最新的在最上面
-        */}
-        <div className="absolute top-[12%] right-4 flex flex-col items-end gap-2 z-20 max-w-[80%]">
-          <AnimatePresence mode="popLayout">
-            {feedbackQueue.map((item, index) => (
-              <FeedbackBubble key={item.id} item={item} index={index} />
-            ))}
-          </AnimatePresence>
-        </div>
+        {/* Bottom Subtitle Bar (replaces floating bubbles) */}
+        <SubtitleBar />
 
-        {/*
-            Real-time Skeleton Overlay (Canvas)
-            Replaces the static ghost image
-        */}
+        {/* Real-time Skeleton Overlay (Canvas) */}
         <canvas
           ref={canvasRef}
           className="absolute inset-0 w-full h-full object-cover opacity-80"
