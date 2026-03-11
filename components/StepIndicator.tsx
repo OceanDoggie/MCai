@@ -31,7 +31,7 @@ const getStateLabel = (state: CoachStateUpdate['state']) => {
     case 'watching':
       return 'Checking...';
     case 'confirmed':
-      return 'Perfect!';
+      return 'OK';
     case 'complete':
       return 'All Done!';
     default:

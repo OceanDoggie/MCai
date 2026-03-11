@@ -44,23 +44,23 @@
   },
   "": {
     "id": "",
-    "title": "性感蹲姿",
-    "difficulty": "Easy",
-    "description": "1 arm (1.2m) | 1.5x | Chest Level | Outward 5°",
+    "title": "性感下蹲",
+    "difficulty": "Medium",
+    "description": "1 arm (1.5m) | 1.5x | Chest Level | Outward 5°",
     "structure": {
-      "head": "Slightly tilted head with a direct gaze at the camera, hair flowing naturally to one side.",
-      "hands": "One hand resting lightly on the ground for support, the other hand resting gently on the knee.",
-      "feet": "Kneeling position with one leg bent at the knee and the other foot flat on the ground."
+      "head": "Slightly tilted to the side, looking directly at the camera with a subtle smile. Hair slightly windblown, adding to the dynamic feel.",
+      "hands": "One hand resting on the ground for support, fingers slightly splayed. The other hand is placed gently on the thigh or hip, relaxed.",
+      "feet": "Kneeling with one leg forward and the other tucked back. Toes pointed, feet positioned for balance and visual appeal."
     },
     "tips": [
-      "利用自然光，避免过于强烈的直射光",
-      "选择简洁的背景，突出人物",
-      "引导模特放松，展现自然状态"
+      "Focus on soft, natural lighting to enhance skin tones.",
+      "Use a shallow depth of field to blur the background and emphasize the subject.",
+      "Consider shooting from a slightly lower angle to elongate the legs."
     ],
     "tags": [
-      "性感",
-      "时尚",
-      "亚洲女性"
+      "kneeling pose",
+      "sexy",
+      "outdoor shot"
     ]
   }
 }
