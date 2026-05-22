@@ -37,6 +37,23 @@ export interface GridHighlight {
   fade_ms?: number;
 }
 
+// Scene analysis result (Task 4)
+export interface SceneElement {
+  type: string;
+  position: string;
+  usable: string;
+}
+
+export interface SceneContext {
+  scene_type: string;
+  elements: SceneElement[];
+  lighting: string;
+  background: string;
+  mood: string;
+}
+
+export type SceneAnalysisStatus = 'idle' | 'analyzing' | 'complete' | 'error';
+
 interface LivePoseState {
   // The real-time skeletal data of the user (updated every frame)
   currentLivePose: Landmark[] | null;
@@ -75,6 +92,14 @@ interface LivePoseState {
   // === Grid Highlights ===
   gridHighlights: GridHighlight[];
   setGridHighlights: (highlights: GridHighlight[]) => void;
+
+  // === Scene Analysis (Task 4) ===
+  sceneAnalysisStatus: SceneAnalysisStatus;
+  sceneAnalysisMessage: string;
+  sceneContext: SceneContext | null;
+  setSceneAnalysisStatus: (status: SceneAnalysisStatus, message?: string) => void;
+  setSceneContext: (context: SceneContext | null) => void;
+  resetSceneAnalysis: () => void;
 
   // === Legacy API (kept for compatibility) ===
   feedbackQueue: FeedbackItem[];
@@ -173,6 +198,21 @@ export const useLivePoseStore = create<LivePoseState>((set, get) => ({
   // === Grid Highlights ===
   gridHighlights: [],
   setGridHighlights: (highlights) => set({ gridHighlights: highlights }),
+
+  // === Scene Analysis (Task 4) ===
+  sceneAnalysisStatus: 'idle',
+  sceneAnalysisMessage: '',
+  sceneContext: null,
+  setSceneAnalysisStatus: (status, message = '') => set({
+    sceneAnalysisStatus: status,
+    sceneAnalysisMessage: message
+  }),
+  setSceneContext: (context) => set({ sceneContext: context }),
+  resetSceneAnalysis: () => set({
+    sceneAnalysisStatus: 'idle',
+    sceneAnalysisMessage: '',
+    sceneContext: null
+  }),
 
   // === Legacy API ===
   feedbackQueue: [],

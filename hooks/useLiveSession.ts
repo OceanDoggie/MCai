@@ -49,6 +49,7 @@ export const useLiveSession = () => {
         useLivePoseStore.getState().setCoachDebugInfo(null);
         useLivePoseStore.getState().clearSubtitle();
         useLivePoseStore.getState().setGridHighlights([]);
+        useLivePoseStore.getState().resetSceneAnalysis();  // Task 4: Reset scene analysis
 
         setStatus('disconnected');
     }, []);
@@ -225,6 +226,13 @@ export const useLiveSession = () => {
                     } else if (msg.type === 'grid_highlight') {
                         // Grid highlight updates for UI feedback
                         useLivePoseStore.getState().setGridHighlights(msg.highlights || []);
+                    } else if (msg.type === 'scene_analysis_status') {
+                        // Task 4: Scene analysis status updates
+                        console.log('[LiveSession] Scene analysis:', msg.status, msg.message);
+                        useLivePoseStore.getState().setSceneAnalysisStatus(msg.status, msg.message);
+                        if (msg.data) {
+                            useLivePoseStore.getState().setSceneContext(msg.data);
+                        }
                     }
                 } catch (e) {
                     console.error("Parse message error", e);
@@ -336,7 +344,31 @@ export const useLiveSession = () => {
         }
     }, []);
 
-    return { status, connect, disconnect, sendExactFrame, sendPoseData, setTargetPose };
+    // --- Set Session Config (告诉后端用户选择的拍摄模式) ---
+    const setSessionConfig = useCallback((config: { mode: 'friend_helps' | 'selfie' | 'remote' }) => {
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+            console.log('[LiveSession] Setting session config:', config);
+            wsRef.current.send(JSON.stringify({
+                type: 'set_session_config',
+                data: config
+            }));
+        }
+    }, []);
+
+    // --- Task 4: Send Scene Analysis Request ---
+    const analyzeScene = useCallback((base64Image: string) => {
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+            console.log('[LiveSession] Requesting scene analysis...');
+            // Remove header if present
+            const data = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
+            wsRef.current.send(JSON.stringify({
+                type: 'analyze_scene',
+                data: data
+            }));
+        }
+    }, []);
+
+    return { status, connect, disconnect, sendExactFrame, sendPoseData, setTargetPose, setSessionConfig, analyzeScene };
 };
 
 // --- Helpers ---

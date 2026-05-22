@@ -18,7 +18,16 @@ from gemini_client import GeminiLiveClient
 from gemini_vision import GeminiVisionClient
 from pose_database import add_pose, get_pose, list_all_poses, save_to_file, get_pose_with_steps
 from coach import CoachStateMachine
+from scene_analyzer import SceneAnalyzer, format_scene_context, format_scene_summary
 import re
+
+def fix_transcription_spacing(text: str) -> str:
+    """Fix missing spaces in Gemini transcription output"""
+    # 数字和字母之间补空格（如 "1.5xzoom" → "1.5x zoom"）
+    text = re.sub(r'(\d+\.?\d*x?)([a-zA-Z])', r'\1 \2', text)
+    # 小写字母和大写字母之间补空格（如 "zoomActivated" → "zoom Activated"）
+    text = re.sub(r'([a-z])([A-Z])', r'\1 \2', text)
+    return text
 
 # Configure logging
 logging.basicConfig(
@@ -103,6 +112,15 @@ Example POSING responses:
 - "Feet — spread them wider, shoulder-width apart"
 - "Left hand — drop it down to your side"
 - "Head — turn it 10 degrees to your left"
+
+---
+LANGUAGE AND TONE RULES:
+- Speak in casual conversational English, NOT formal commands.
+- BAD: "Please position your feet shoulder-width apart."
+- GOOD: "Open your feet to shoulder width — it'll make you look more grounded."
+- After EVERY correction, add a short reason with "so that / this way / it'll" structure.
+- Keep it friendly, like a photographer friend coaching you on set.
+- Affirmations when user corrects: say "yes, exactly" or "perfect" before moving on.
 """
 
 @dataclass
@@ -110,9 +128,15 @@ class SessionState:
     """Tracks the current session state across all three phases"""
     phase: SessionPhase = SessionPhase.FRAMING
     target_pose: Optional[Dict[str, Any]] = None
+    shooting_mode: str = "friend_helps"  # 'friend_helps' | 'selfie' | 'remote'
 
     # Phase timing - track when each phase started
     phase_start_time: float = 0.0
+
+    # Scene Context (Task 4)
+    scene_context: Optional[Dict[str, Any]] = None  # 场景分析结果
+    scene_analyzed: bool = False  # 是否已完成场景分析
+    scene_analyzing: bool = False  # 是否正在分析场景
 
     # Phase 1 - Framing
     framing_started: bool = False
@@ -151,6 +175,7 @@ class SessionState:
         self.good_pose_start = 0.0
         self.countdown_started = False
         self.recent_deviations = []
+        # Note: scene_context is NOT reset here - it persists across poses in the same session
 
 # MediaPipe 关键点索引映射
 POSE_LANDMARKS = {
@@ -417,17 +442,26 @@ def analyze_framing(landmarks: list) -> dict:
     }
 
 
-def generate_framing_prompt(pose_data: dict) -> str:
+def generate_framing_prompt(pose_data: dict, scene_context: Optional[Dict[str, Any]] = None) -> str:
     """
     Generate Phase 1 framing instructions for the photographer.
+    Optionally includes scene context for environment-aware guidance.
     """
     description = pose_data.get('description', 'Front view at eye level')
 
+    # Build scene context section if available
+    scene_section = ""
+    if scene_context:
+        scene_ctx_str = format_scene_context(scene_context)
+        if scene_ctx_str:
+            scene_section = f"\n{scene_ctx_str}\n"
+
     return f"""[FRAMING PHASE]
 Target camera position: {description}
-
+{scene_section}
 Give 1-2 short instructions for the photographer on how to position the phone.
-Examples: "Hold phone vertical", "Crouch down a bit", "Center the subject"."""
+Examples: "Hold phone vertical", "Crouch down a bit", "Center the subject".
+If there are interesting elements in the scene, consider including them in the frame."""
 
 
 # ============== PHASE 2: POSING HELPERS ==============
@@ -634,6 +668,7 @@ def generate_posing_prompt(deviation: dict, state: SessionState) -> str:
     Generate Phase 2 posing instruction prompt for Gemini.
     Includes BOTH the specific issue AND the target instruction for context.
     Uses strict feedback rules from coach if available.
+    Now includes scene context for environment-aware instructions.
     """
     level = deviation.get('level', 'unknown')
     issues = deviation.get('issues', [])
@@ -644,12 +679,22 @@ def generate_posing_prompt(deviation: dict, state: SessionState) -> str:
     if state.coach:
         feedback_mod = state.coach.get_feedback_prompt_modifier()
 
+    # Build scene context section if available
+    scene_section = ""
+    if state.scene_context:
+        scene_ctx_str = format_scene_context(state.scene_context)
+        if scene_ctx_str:
+            scene_section = f"\n{scene_ctx_str}\n"
+
     if level == "good":
         # Good pose - but use strict feedback rules
         if state.coach:
             feedback_type = state.coach.get_allowed_feedback_type()
             if feedback_type == 'earned_praise':
                 tip = random.choice(ENCOURAGEMENT_TIPS)
+                # Include scene-aware tip if elements are available
+                if state.scene_context and state.scene_context.get('elements'):
+                    return f"[POSING PHASE] Pose looks great!{scene_section}You can remind them to: {tip}"
                 return f"[POSING PHASE] Pose looks great! You can remind them to: {tip}"
             else:
                 # Neutral confirmation only
@@ -668,24 +713,26 @@ def generate_posing_prompt(deviation: dict, state: SessionState) -> str:
 
             if level == "major":
                 return f"""[POSING PHASE - URGENT]
-Issue: {current}
+{scene_section}Issue: {current}
 Target: {target}
-Give ONE specific correction in under 10 words. Example: "{instruction}" """
+Give ONE specific correction in under 10 words. Example: "{instruction}"
+If there's a prop nearby (railing, wall, chair), suggest using it."""
             else:  # minor
                 return f"""[POSING PHASE]
-Small adjustment needed: {current}
+{scene_section}Small adjustment needed: {current}
 Target: {target}
-Give a friendly, brief tip. Example: "{instruction}" """
+Give a friendly, brief tip. Example: "{instruction}"
+Consider suggesting interaction with nearby props if available."""
         else:
             # Fallback for string issues
             if level == "major":
-                return f"[POSING PHASE - URGENT] Issue: {issue}. Give one specific correction."
+                return f"[POSING PHASE - URGENT]{scene_section}Issue: {issue}. Give one specific correction."
             else:
-                return f"[POSING PHASE] Small adjustment: {issue}. Give a brief tip."
+                return f"[POSING PHASE]{scene_section}Small adjustment: {issue}. Give a brief tip."
     else:
         # No specific issues found but not "good"
         target_hands = target_pose.get('hands', 'natural position')
-        return f"[POSING PHASE] Check if pose matches target. Hands should be: {target_hands}. Give one tip."
+        return f"[POSING PHASE]{scene_section}Check if pose matches target. Hands should be: {target_hands}. Give one tip."
 
 
 # ============== PHASE 3: SHUTTER HELPERS ==============
@@ -769,6 +816,7 @@ async def live_endpoint(websocket: WebSocket):
     print("=== CREATING GEMINI CLIENT ===", flush=True)
     gemini_client = GeminiLiveClient()
     vision_client = GeminiVisionClient()
+    scene_analyzer = SceneAnalyzer()  # Task 4: Scene analyzer
 
     # Session state for three-phase flow
     state = SessionState()
@@ -903,8 +951,8 @@ async def live_endpoint(websocket: WebSocket):
                                 # Send framing prompt on first detection
                                 if not state.framing_started and state.target_pose:
                                     state.framing_started = True
-                                    prompt = generate_framing_prompt(state.target_pose)
-                                    logger.info(f"Phase 1 - Sending framing prompt")
+                                    prompt = generate_framing_prompt(state.target_pose, state.scene_context)
+                                    logger.info(f"Phase 1 - Sending framing prompt (scene_analyzed={state.scene_analyzed})")
                                     await send_with_turn_management(session, prompt, end_of_turn=True)
 
                                 # Check if framing is good
@@ -939,12 +987,12 @@ async def live_endpoint(websocket: WebSocket):
 
                                 # Initialize coach if not already done
                                 if state.coach is None:
-                                    state.coach = CoachStateMachine()
+                                    state.coach = CoachStateMachine()#这就是创建点。
                                     # Get pose with steps from database
                                     pose_id = state.target_pose.get('id', '')
                                     pose_with_steps = get_pose_with_steps(pose_id) if pose_id else None
 
-                                    if pose_with_steps and pose_with_steps.get('steps'):
+                                    if pose_with_steps and pose_with_steps.get('steps'):#第一次调用CoachStateMachine的方法
                                         coach_result = state.coach.start_pose(pose_with_steps)
                                     else:
                                         # Use target_pose directly (will generate default steps)
@@ -1057,6 +1105,12 @@ async def live_endpoint(websocket: WebSocket):
                                     else:
                                         await send_with_turn_management(session, f"[SHOT TAKEN] Great! Let's take another. Suggest: {tip}", end_of_turn=True)
 
+                        elif msg.get("type") == "set_session_config":
+                            # Set session configuration (shooting mode)
+                            config_data = msg.get('data', {})
+                            state.shooting_mode = config_data.get('mode', 'friend_helps')
+                            logger.info(f"Shooting mode set to: {state.shooting_mode}")
+
                         elif msg.get("type") == "set_target_pose":
                             # Set target pose and start Phase 1
                             pose_data = msg.get('data', {})
@@ -1070,8 +1124,64 @@ async def live_endpoint(websocket: WebSocket):
                             await send_with_turn_management(session, target_context, end_of_turn=False)
 
                             # Trigger Phase 1 framing guidance (with turn management)
-                            framing_prompt = generate_framing_prompt(pose_data)
+                            # Include scene context if available
+                            framing_prompt = generate_framing_prompt(pose_data, state.scene_context)
                             await send_with_turn_management(session, framing_prompt, end_of_turn=True)
+
+                        elif msg.get("type") == "analyze_scene":
+                            # Task 4: Scene environment scanning
+                            # Triggered after Start Call, before Framing
+                            if state.scene_analyzing:
+                                logger.debug("Scene analysis already in progress, skipping")
+                                continue
+
+                            try:
+                                image_data = msg.get("data", "")
+                                if "base64," in image_data:
+                                    image_data = image_data.split("base64,")[1]
+
+                                if not image_data:
+                                    logger.warning("No image data for scene analysis")
+                                    continue
+
+                                state.scene_analyzing = True
+                                logger.info("Starting scene analysis...")
+
+                                # Notify frontend: analyzing
+                                await websocket.send_json({
+                                    "type": "scene_analysis_status",
+                                    "status": "analyzing",
+                                    "message": "正在分析拍摄环境..."
+                                })
+
+                                # Perform scene analysis
+                                scene_result = await scene_analyzer.analyze_scene(image_data)
+
+                                # Store result in session state
+                                state.scene_context = scene_result
+                                state.scene_analyzed = True
+                                state.scene_analyzing = False
+
+                                # Generate summary for frontend
+                                summary = format_scene_summary(scene_result)
+                                logger.info(f"Scene analysis complete: {summary}")
+
+                                # Notify frontend: complete
+                                await websocket.send_json({
+                                    "type": "scene_analysis_status",
+                                    "status": "complete",
+                                    "message": f"✓ {summary}",
+                                    "data": scene_result
+                                })
+
+                            except Exception as e:
+                                logger.error(f"Scene analysis failed: {e}")
+                                state.scene_analyzing = False
+                                await websocket.send_json({
+                                    "type": "scene_analysis_status",
+                                    "status": "error",
+                                    "message": f"场景分析失败: {str(e)}"
+                                })
 
                         elif msg.get("type") == "analyze_pose":
                             try:
@@ -1172,6 +1282,7 @@ async def live_endpoint(websocket: WebSocket):
                                         if hasattr(transcription, 'text') and transcription.text:
                                             text_response = str(transcription.text).strip()
                                             if text_response:
+                                                text_response = fix_transcription_spacing(text_response)
                                                 logger.info(f"Transcription from Gemini: {text_response}")
                                                 await websocket.send_json({"type": "text", "data": text_response})
                                     except Exception as trans_err:

@@ -38,7 +38,13 @@ export const CameraView: React.FC = () => {
     const { currentLivePose, setCurrentLivePose } = useLivePoseStore();
 
     // [NEW] Live Session Hook
-    const { status: liveStatus, connect: connectLive, disconnect: disconnectLive, sendExactFrame, sendPoseData, setTargetPose } = useLiveSession();
+    const { status: liveStatus, connect: connectLive, disconnect: disconnectLive, sendExactFrame, sendPoseData, setTargetPose, setSessionConfig, analyzeScene } = useLiveSession();
+
+    // Task 4: Scene analysis state
+    const { sceneAnalysisStatus, sceneAnalysisMessage, sceneContext } = useLivePoseStore();
+
+    // Session mode for AI coaching style
+    const [sessionMode, setSessionMode] = useState<'friend_helps' | 'selfie' | 'remote'>('friend_helps');
 
     const activePose = playlist[activeIndex];
     const lastPhoto = gallery.length > 0 ? gallery[gallery.length - 1] : null;
@@ -59,18 +65,54 @@ export const CameraView: React.FC = () => {
         }
     }, [activePose]);
 
+    // [Task 4] 当连接成功后，自动触发场景分析
+    const sceneAnalysisTriggered = useRef(false);
+    useEffect(() => {
+        if (liveStatus === 'connected' && !sceneAnalysisTriggered.current && videoRef.current && videoRef.current.readyState >= 2) {
+            // Capture current frame for scene analysis
+            sceneAnalysisTriggered.current = true;
+            setTimeout(() => {
+                if (videoRef.current) {
+                    try {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = 640;
+                        canvas.height = 360;
+                        const ctx = canvas.getContext('2d');
+                        if (ctx) {
+                            ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+                            const base64 = canvas.toDataURL('image/jpeg', 0.7);
+                            analyzeScene(base64);
+                        }
+                    } catch (e) {
+                        console.error('[CameraView] Scene analysis capture failed:', e);
+                    }
+                }
+            }, 500); // Small delay to ensure video is ready
+        }
+        // Reset trigger on disconnect
+        if (liveStatus === 'disconnected') {
+            sceneAnalysisTriggered.current = false;
+        }
+    }, [liveStatus, analyzeScene]);
+
     // [NEW] 当连接成功或切换姿势时，通知 Gemini 目标姿势
+    // Wait for scene analysis to complete before setting target pose
     useEffect(() => {
         if (liveStatus === 'connected' && activePose) {
-            setTargetPose({
-                id: activePose.id,
-                title: activePose.title,
-                description: activePose.description,
-                structure: activePose.structure || { head: 'Natural', hands: 'Relaxed', feet: 'Stable' },
-                tips: activePose.tips || []
-            });
+            // If scene analysis is complete or errored, proceed with target pose
+            // If still analyzing, wait a bit
+            const shouldSetPose = sceneAnalysisStatus === 'complete' || sceneAnalysisStatus === 'error' || sceneAnalysisStatus === 'idle';
+            if (shouldSetPose) {
+                setTargetPose({
+                    id: activePose.id,
+                    title: activePose.title,
+                    description: activePose.description,
+                    structure: activePose.structure || { head: 'Natural', hands: 'Relaxed', feet: 'Stable' },
+                    tips: activePose.tips || []
+                });
+            }
         }
-    }, [liveStatus, activePose, setTargetPose]);
+    }, [liveStatus, activePose, setTargetPose, sceneAnalysisStatus]);
 
     const feetWarning = useMemo(() => {
         if (!currentLivePose || !activePose) return false;
@@ -139,6 +181,15 @@ export const CameraView: React.FC = () => {
     const handleFinish = () => {
         disconnectLive();
         setView('result');
+    };
+
+    // Start session and send session config after connection
+    const handleStartSession = async () => {
+        await connectLive();
+        // Send session config after a short delay to ensure WebSocket is ready
+        setTimeout(() => {
+            setSessionConfig({ mode: sessionMode });
+        }, 500);
     };
 
     const onTouchStart = (e: React.TouchEvent) => {
@@ -249,13 +300,53 @@ export const CameraView: React.FC = () => {
                         <Mic size={40} className="text-mcai-accent" />
                     </div>
                     <h2 className="text-2xl font-bold text-white mb-2">Start AI Session</h2>
-                    <p className="text-white/60 text-sm mb-8 max-w-xs">Connecting to Gemini Live. Please allow microphone access.</p>
+                    <p className="text-white/60 text-sm mb-4 max-w-xs">Connecting to Gemini Live. Please allow microphone access.</p>
+
+                    {/* Session Mode Selection */}
+                    <div className="w-full max-w-sm mb-6 space-y-2">
+                        <p className="text-white/40 text-xs uppercase tracking-wider mb-3">Choose your setup</p>
+                        {[
+                            { value: 'friend_helps' as const, label: 'Friend is filming me', sub: 'They watch screen, you follow voice' },
+                            { value: 'selfie' as const, label: 'Selfie / Tripod', sub: 'You watch screen and follow voice' },
+                            { value: 'remote' as const, label: 'Remote coaching', sub: "You're the photographer, coaching someone else" },
+                        ].map((option) => (
+                            <button
+                                key={option.value}
+                                onClick={() => setSessionMode(option.value)}
+                                className={`w-full p-3 rounded-xl border transition-all text-left ${
+                                    sessionMode === option.value
+                                        ? 'bg-mcai-accent/20 border-mcai-accent text-white'
+                                        : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10'
+                                }`}
+                            >
+                                <div className="font-semibold text-sm">{option.label}</div>
+                                <div className="text-xs text-white/50 mt-0.5">{option.sub}</div>
+                            </button>
+                        ))}
+                    </div>
+
                     <button
-                        onClick={connectLive}
+                        onClick={handleStartSession}
                         className="bg-mcai-accent text-black font-bold py-3 px-8 rounded-full text-lg shadow-[0_0_20px_rgba(242,169,59,0.4)] hover:scale-105 transition-transform"
                     >
                         Start Call
                     </button>
+                </div>
+            )}
+
+            {/* --- Task 4: Scene Analysis Status Overlay --- */}
+            {liveStatus === 'connected' && sceneAnalysisStatus === 'analyzing' && (
+                <div className="absolute top-20 left-1/2 -translate-x-1/2 z-[55] bg-black/70 backdrop-blur-md rounded-xl px-4 py-3 flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+                    <div className="w-5 h-5 border-2 border-mcai-accent border-t-transparent rounded-full animate-spin" />
+                    <span className="text-white text-sm font-medium">{sceneAnalysisMessage || '正在分析拍摄环境...'}</span>
+                </div>
+            )}
+
+            {/* Scene Analysis Complete Badge */}
+            {liveStatus === 'connected' && sceneAnalysisStatus === 'complete' && sceneContext && (
+                <div className="absolute top-20 left-1/2 -translate-x-1/2 z-[55] bg-green-500/20 backdrop-blur-md border border-green-500/30 rounded-xl px-4 py-2 flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
+                    <CheckCircle2 size={16} className="text-green-400" />
+                    <span className="text-green-300 text-sm font-medium">{sceneAnalysisMessage}</span>
                 </div>
             )}
 
@@ -382,6 +473,21 @@ export const CameraView: React.FC = () => {
                                     <p className="text-white/90 text-[8px] leading-[1.1] font-medium">
                                         {activePose.structure?.feet || "Stable"}
                                     </p>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Task 4: Scene Elements Display */}
+                        {sceneContext && sceneContext.elements && sceneContext.elements.length > 0 && (
+                            <div className="bg-black/60 backdrop-blur-md rounded-lg border border-emerald-500/30 p-1.5 shrink-0 mt-1">
+                                <span className="text-emerald-400 font-black text-[7px] uppercase block mb-1">PROPS</span>
+                                <div className="space-y-0.5">
+                                    {sceneContext.elements.slice(0, 3).map((elem, idx) => (
+                                        <p key={idx} className="text-white/80 text-[7px] leading-tight">
+                                            <span className="text-emerald-300">{elem.type}</span>
+                                            <span className="text-white/40"> ({elem.position})</span>
+                                        </p>
+                                    ))}
                                 </div>
                             </div>
                         )}

@@ -16,7 +16,7 @@ from typing import Optional, Dict, List, Any, Tuple
 
 logger = logging.getLogger("mcai-coach")
 
-# ============== CONSTANTS ==============
+# ============== CONSTANTS常数 ==============
 WATCH_TIMEOUT = 8.0          # Max seconds to watch for completion (increased from 6)
 PASS_THRESHOLD = 3           # Consecutive passes needed to confirm
 MAX_ATTEMPTS = 5             # Max attempts before moving on
@@ -49,7 +49,7 @@ class CoachState(Enum):
     CONFIRMED = "confirmed"          # Step completed
     COMPLETE = "complete"            # All steps done
 
-
+#不是很懂这算是override吗
 @dataclass
 class StepProgress:
     """Tracks progress through a single step"""
@@ -74,7 +74,7 @@ class DebugInfo:
 
 
 @dataclass
-class CoachSession:
+class CoachSession:#每一次指导会话会有的属性
     """Tracks the entire coaching session"""
     steps: List[Dict] = field(default_factory=list)
     current_step_index: int = 0
@@ -90,7 +90,7 @@ class CoachSession:
     last_check_passed: bool = False   # Whether the last landmark check passed
 
 
-class CoachStateMachine:
+class CoachStateMachine:#coach的图纸
     """
     State machine for coaching users through pose steps sequentially.
 
@@ -117,60 +117,60 @@ class CoachStateMachine:
         Returns:
             Initial instruction to give to user
         """
-        steps = pose_data.get('steps', [])
+        steps = pose_data.get('steps', [])#不是方法调用，是从dict取值
         if not steps:
             # Generate default steps from pose structure if no steps defined
-            steps = self._generate_default_steps(pose_data)
+            steps = self._generate_default_steps(pose_data)#生成默认步骤。调用方法1
 
-        self.session = CoachSession(
+        self.session = CoachSession(#实例化某个指导会话并塞入参数？
             steps=steps,
             current_step_index=0,
             state=CoachState.GIVE_INSTRUCTION,
-            pose_name=pose_data.get('name', pose_data.get('title', 'Unknown'))
+            pose_name=pose_data.get('name', pose_data.get('title', 'Unknown'))#调用dict对象的方法
         )
 
-        logger.info(f"Coach started for pose '{self.session.pose_name}' with {len(steps)} steps")
+        logger.info(f"Coach started for pose '{self.session.pose_name}' with {len(steps)} steps")#完全不懂这在干什么
 
-        return self._give_current_instruction()
+        return self._give_current_instruction()#给第一个指令。调用方法2
 
     def tick(self, landmarks: List[Dict]) -> Optional[Dict]:
         """
         Main update function. Call this every ~1 second with current landmarks.
-
-        Args:
-            landmarks: Current MediaPipe landmark data
+        主要的方法。每秒用当前点位做参数判断一次
+        Args参数:
+            landmarks: Current MediaPipe landmark data当前帧的17个点的数据
 
         Returns:
-            Dict with {action, message, state_update, debug_info} or None if no action needed
-        """
+            Dict with {action, message, state_update, debug_info} or None if no action needed指导info字典
+        """# ===== 前置检查：不该工作的情况直接退出 =====
         if not self.session or self.session.state == CoachState.IDLE:
             return None
 
         if self.session.state == CoachState.COMPLETE:
             return None
-
+# ===== 获取当前状态 =====
         current_time = time.time()
         progress = self.session.step_progress
 
-        # Rate limit checks
+        # Rate limit checks ===== 限流：避免检查太频繁 =====
         if current_time - progress.last_check_time < CHECK_INTERVAL:
             return None
         progress.last_check_time = current_time
 
-        # Get current step - FIX: Bounds check BEFORE accessing
+        # Get current step - FIX: Bounds check BEFORE accessing 
         if self.session.current_step_index >= len(self.session.steps):
             return self._complete_pose()
 
         step = self.session.steps[self.session.current_step_index]
 
-        # ===== GIVE_INSTRUCTION State =====
+        # ===== GIVE_INSTRUCTION State # ===== 状态机：GIVE_INSTRUCTION状态 =====
         if self.session.state == CoachState.GIVE_INSTRUCTION:
             self.session.state = CoachState.WATCHING
             progress.watch_start_time = current_time
             progress.consecutive_passes = 0
             return self._give_current_instruction()
 
-        # ===== WATCHING State =====
+        # ===== WATCHING State =====# ===== 状态机：GIVE_INSTRUCTION状态 =====
         if self.session.state == CoachState.WATCHING:
             # Check if step is complete
             check_result = self._check_landmark(landmarks, step)
